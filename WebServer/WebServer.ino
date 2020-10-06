@@ -1,5 +1,11 @@
 #include <SPI.h>
 #include <Ethernet.h>
+#include "DHT.h"
+
+#define DHTPIN 7     
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
 
 byte mac[] = {
   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
@@ -33,22 +39,39 @@ void setup() {
   Serial.print("server is at ");
   Serial.println(Ethernet.localIP());
 
+  dht.begin();
 }
 
-
+float t;
+float h;
 void loop() {
+  // Wait a few seconds between measurements.
+  delay(2000);
+  
+  
+  h = dht.readHumidity();
+  Serial.print(F("Humidity: "));
+  Serial.print(h);
+  Serial.println(F("% "));
+  t = dht.readTemperature();
+  Serial.print(F("Temperature: "));
+  Serial.print(t);
+  Serial.println(F("°C "));
+  
   // listen for incoming clients
   EthernetClient client = server.available();
   if (client) {
     Serial.println("new client");
     // an http request ends with a blank line
     boolean currentLineIsBlank = true;
-    char request_buffer[600] = {0};
+    char request_buffer[200] = {0};
     int i = 0;
     while (client.connected()) {
       if (client.available()) {
         char c = client.read();
-        request_buffer[i] = c;
+        if (i <200){
+          request_buffer[i] = c;
+        }
         i++;
         
         // if you've gotten to the end of the line (received a newline
@@ -59,9 +82,10 @@ void loop() {
           char rqPath[20] = {0};
           char GET[] = "GET";
           char HOME_PATH[] = "/";
-          char GET_TEMPERATURE[] = "getTemperature";
+          char GET_TEMPERATURE[] = "/getTemperature";
+          char GET_HUMIDITY[] = "/getHumidity";
           parseRequest(request_buffer, sizeof(request_buffer), rqMethod, 10, rqPath, 20); 
-          
+          Serial.println(rqPath);
           if (strcmp(rqPath, HOME_PATH) == 0) {
             if (strcmp(rqMethod, GET) == 0) {
               sendHome(&client);
@@ -71,6 +95,12 @@ void loop() {
           if (strcmp(rqPath, GET_TEMPERATURE) == 0) {
             if (strcmp(rqMethod, GET) == 0) {
               sendTemp(&client);
+              break;
+            }
+          } 
+          if (strcmp(rqPath, GET_HUMIDITY) == 0) {
+            if (strcmp(rqMethod, GET) == 0) {
+              sendHumidity(&client);
               break;
             }
           } 
@@ -151,10 +181,38 @@ char okHeader[] = "HTTP/1.1 200 OK\r\n"
                   "Refresh: 5\r\n";  // refresh the page automatically every 5 sec
 
 void sendTemp(EthernetClient *client) {
+  // float t = dht.readTemperature();
   // send a standard http response header
   sendHeader(client, okHeader);
-  char temp[] = "25.8";
+  // Maximum temp is 100.00. We need a maximum of 6 chars, with 2 decimal positions.
+  char temp[13]={0};
+  dtostrf(t, 6, 2, temp);
+  temp[6] = '&';
+  temp[7] = 'd';
+  temp[8] = 'e';
+  temp[9] = 'g';
+  temp[10] = ';';
+  temp[11] = 'C';
   sendBody(client, temp);
+}
+
+void sendHumidity(EthernetClient *client) {
+  // float h = dht.readHumidity();
+  // send a standard http response header
+  sendHeader(client, okHeader);
+  // Maximum humidity is 100.00. We need a maximum of 6 chars, with 2 decimal positions.
+  char humidity[15]={0};
+  dtostrf(h, 6, 2, humidity);
+  humidity[6] = '&';
+  humidity[7] = 'p';
+  humidity[8] = 'e';
+  humidity[9] = 'r';
+  humidity[10] = 'c';
+  humidity[11] = 'n';
+  humidity[12] = 't';
+  humidity[13] = ';';
+  
+  sendBody(client, humidity);
 }
 
 char mainBody[] =  "<!DOCTYPE html>\r\n"
@@ -165,14 +223,9 @@ char mainBody[] =  "<!DOCTYPE html>\r\n"
                      "</body>\r\n"
                      "</html>\r\n";
 void sendHome(EthernetClient *client) {
-  Serial.println("trying...");
-  
   // send a standard http response header
   sendHeader(client, okHeader);
-  Serial.println("header out...");
-  
   sendBody(client, mainBody);
-  Serial.println("body out...");
 }
 
 char notFoundHeader[] = "HTTP/1.1 404 NotFound\r\n"
@@ -190,10 +243,8 @@ char notFoundBody[] =  "<!DOCTYPE html>\r\n"
                          "</div>";
 
 void sendNotFound(EthernetClient *client) {
-  
   // send Not Found a standard http response header
   sendHeader(client, notFoundHeader);  
-  
   sendBody(client, notFoundBody);
 }
 
