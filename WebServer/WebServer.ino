@@ -17,6 +17,10 @@ EthernetServer server(80);
 // HTTP RS Header https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html#sec6
 const char okHeader[] PROGMEM = "HTTP/1.1 200 OK\r\n"
                   "Content-Type: text/html\r\n"
+                  "Connection: close\r\n"; // the connection will be closed after completion of the response
+                  
+const char okHeaderRefresh[] PROGMEM = "HTTP/1.1 200 OK\r\n"
+                  "Content-Type: text/html\r\n"
                   "Connection: close\r\n" // the connection will be closed after completion of the response
                   "Refresh: 5\r\n";  // refresh the page automatically every 5 sec
 const char notFoundHeader[] PROGMEM = "HTTP/1.1 404 NotFound\r\n"
@@ -43,7 +47,7 @@ const char okBody[] PROGMEM = "<!DOCTYPE html>\r\n"
                               "        <p>--</p>\r\n"
                               "      </div>\r\n"
                               "      <div style=\"display: inline-block\">\r\n"
-                              "        <p> °C  </p>\r\n"
+                              "        <p> &deg;C</p>\r\n"
                               "      </div>\r\n"
                               "    </div>\r\n"
                               "    <div>\r\n"
@@ -54,7 +58,7 @@ const char okBody[] PROGMEM = "<!DOCTYPE html>\r\n"
                               "        <p>--</p>\r\n"
                               "      </div>\r\n"
                               "      <div style=\"display: inline-block\">\r\n"
-                              "        <p> %  </p>\r\n"
+                              "        <p> &percnt;</p>\r\n"
                               "      </div>\r\n"
                               "    </div>\r\n"
                               "<script>\r\n"
@@ -62,7 +66,7 @@ const char okBody[] PROGMEM = "<!DOCTYPE html>\r\n"
                               "  var xhttp = new XMLHttpRequest();\r\n"
                               "  xhttp.onreadystatechange = function() {\r\n"
                               "    if (this.readyState == 4 && this.status == 200) {\r\n"
-                              "      document.getElementById(\"humidity\").innerHTML = this.responseText;\r\n"
+                              "      document.getElementById(\"temperature\").innerHTML = this.responseText;\r\n"
                               "    }\r\n"
                               "  };\r\n"
                               "  xhttp.open(\"GET\", \"getTemperature\", true);\r\n"
@@ -93,7 +97,7 @@ const char notFoundBody[] PROGMEM =  "<!DOCTYPE html>\r\n"
                          "<a href=\"/\">Take Me Home </a>\r\n"
                          "</div>\r\n";
 
-const char *const string_table[] PROGMEM = {okHeader, notFoundHeader, okBody, notFoundBody};
+const char *const string_table[] PROGMEM = {okHeader, okHeaderRefresh, notFoundHeader, okBody, notFoundBody};
 char char_buffer[300];
 
 void setup() {
@@ -275,15 +279,13 @@ void sendTemp(EthernetClient *client) {
   temp[9] = 'g';
   temp[10] = ';';
   temp[11] = 'C';
-  sendBody(client, temp);
+  sendDataArrayCharByChar(client, temp);
 }
 
 void sendHumidity(EthernetClient *client) {
   // float h = dht.readHumidity();
   // send a standard http response header
-  //strcpy_P(buffer, (char *)pgm_read_word(&(string_table[0]))); 
-  //sendHeader(client, buffer);;
-  sendData_P(client, 0);
+  sendOkHeader(client);
   // Maximum humidity is 100.00. We need a maximum of 6 chars, with 2 decimal positions.
   char humidity[15]={0};
   dtostrf(h, 6, 2, humidity);
@@ -295,104 +297,70 @@ void sendHumidity(EthernetClient *client) {
   humidity[11] = 'n';
   humidity[12] = 't';
   humidity[13] = ';';
-  
-  sendBody(client, humidity);
+  sendDataArrayCharByChar(client, humidity);
 }
 
 
 void sendHome(EthernetClient *client) {
   // send a standard http response header
-  //strcpy_P(buffer, (char *)pgm_read_word(&(string_table[0]))); 
-  //sendHeader(client, buffer);
-  sendData_P(client, 0);
-  //strcpy_P(buffer, (char *)pgm_read_word(&(string_table[2])));
-  //sendBody(client, buffer);
-  sendData_P(client, 2);
+  sendOkHeaderNoRefresh(client);
+  sendHomeBody(client);
 }
 
 
 void sendNotFound(EthernetClient *client) {
   // send Not Found a standard http response header
-  //strcpy_P(buffer, (char *)pgm_read_word(&(string_table[1]))); 
-  //sendHeader(client, buffer);
-  sendData_P(client, 1);
-  //strcpy_P(buffer, (char *)pgm_read_word(&(string_table[3])));
-  //sendBody(client, buffer);
+  sendNotFoundHeader(client);
+  sendNotFoundBody(client);
+}
+
+void sendNotFoundHeader (EthernetClient *client) {
+  sendData_P(client, 2);
+}
+
+void sendNotFoundBody (EthernetClient *client) {
+  sendData_P(client, 4);
+}
+
+void sendHomeBody (EthernetClient *client) {
   sendData_P(client, 3);
 }
 
-void sendData_P(EthernetClient *client, int index) {
-    unsigned int flash_address = pgm_read_word(&string_table[index]);
-    char c = 0;
-    do {
-      c = (char) pgm_read_byte(flash_address++);
-      Serial.print(c);
-      client->print(c);
-    } while (c!='\0');
-    client->println();
-    Serial.println();
+void sendOkHeaderNoRefresh (EthernetClient *client) {
+  sendData_P(client, 0);
 }
 
-const char okok[] = "HTTP/1.1 200 OK\r\n"
-                  "Content-Type: text/html\r\n"
-                  "Connection: close\r\n"; // the connection will be closed after completion of the response
-                  
 void sendOkHeader (EthernetClient *client) {
-  //char temp_buffer[300];
-  //strcpy_P(temp_buffer, (char *)pgm_read_word(&(string_table[0])));
-  //unsigned int flash_address = pgm_read_word(&string_table[0]);
+  sendData_P(client, 1);
+}
+
+void sendDataArray (EthernetClient *client, char *src) {
+  client->println(src);
+}
+
+void sendDataArrayCharByChar (EthernetClient *client, char *src) {
   int idx = 0;
   do{
-    client->print(okok[idx]);
-    Serial.print(okok[idx]);
+    client->print(src[idx]);
     idx++;
-  } while(okok[idx] != '\0');
-  client->print(okok[idx]);
-  Serial.print(okok[idx]);
-  client->print('\r');
-  client->print('\n');
-  Serial.print('\r');
-  Serial.print('\n');
+  } while(src[idx] != '\0');
+  client->print("\r\n");
 }
 
-void sendOkHeaderln (EthernetClient *client) {
-  client->println(okok);
-  Serial.println(okok);
-}
-
-void sendHeader (EthernetClient *client, char *header) {
-  client->println(header);
-}
-
-void sendBody (EthernetClient *client, char *body) {
-
-//  char * t;    
-//  for (t = body; *t != '\0'; t++) {
-//    
-//  }
-
-//  boolean endOfChunk = false;
-//  int idx = 0;
-//  while (!endOfChunk){
-//    if (body[idx] == '\0') {
-//      endOfChunk = true;
-//      client->print(body[idx]);
-//      break;
-//    } 
-//    client->print(body[idx]);
-//    idx++;
-//  }
-//  client->println();
-
-  int idx = 0;
-  do{
-    client->print(body[idx]);
-    Serial.print(body[idx]);
-    idx++;
-  } while(body[idx] != '\0');
-  client->print(body[idx]);
-  Serial.print(body[idx]);
+void sendData_P(EthernetClient *client, int index) {
+  boolean endOfChunk = false;
+  unsigned int flash_address = pgm_read_word(&string_table[index]);
+  char c = 0;
+  while (!endOfChunk){
+    c = (char) pgm_read_byte(flash_address);
+    if (c == '\0') {
+      endOfChunk = true;
+      break;
+    } 
+    client->print(c);
+    Serial.print(c);
+    flash_address++;
+  }
   client->print("\r\n");
   Serial.print("\r\n");
-  // client->println(body);
 }
