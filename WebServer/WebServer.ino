@@ -26,15 +26,6 @@ const char okHeaderRefresh[] PROGMEM = "HTTP/1.1 200 OK\r\n"
 const char notFoundHeader[] PROGMEM = "HTTP/1.1 404 NotFound\r\n"
                           "Content-Type: text/html\r\n" 
                           "Connection: close\r\n"; // the connection will be closed after completion of the response
-const char mainBody[] PROGMEM =  "<!DOCTYPE html>\r\n"
-                     "<html>\r\n"
-                     "<body>\r\n"
-                     "<h1>Home Weather Station</h1>\r\n"
-                     "<p>Temperature is -- C </p>\r\n"
-                     "</body>\r\n"
-                     "</html>\r\n";
-
-
 const char okBody[] PROGMEM = "<!DOCTYPE html>\r\n"  
                               "<html>\r\n"
                               "  <body>\r\n"
@@ -98,7 +89,6 @@ const char notFoundBody[] PROGMEM =  "<!DOCTYPE html>\r\n"
                          "</div>\r\n";
 
 const char *const string_table[] PROGMEM = {okHeader, okHeaderRefresh, notFoundHeader, okBody, notFoundBody};
-char char_buffer[300];
 
 void setup() {
   Serial.begin(9600);
@@ -247,11 +237,9 @@ void parseRequest(char *request_buffer, int maxBufferSize, char *rqMethod, int m
 
 int getChunkAndPutItInArray(char *destinationArray, char *sourceArray, char endChar, int shift, int maxSize) {
   int chunkIdx = 0;
-  boolean endOfChunk = false;
   int idx = shift;
-  while (!endOfChunk){
+  while (true){
     if (idx >= maxSize || sourceArray[idx] == '\0' || sourceArray[idx] == endChar ) {
-      endOfChunk = true;
       destinationArray[chunkIdx] = '\0';
       chunkIdx++; // increase the traversed positions one more time before exiting.
       break;
@@ -269,7 +257,6 @@ void sendTemp(EthernetClient *client) {
   // float t = dht.readTemperature();
   // send a standard http response header 
   sendOkHeader(client);
-  // sendData_P(client, 0);
   // Maximum temp is 100.00. We need a maximum of 6 chars, with 2 decimal positions.
   char temp[13]={0};
   dtostrf(t, 6, 2, temp);
@@ -314,31 +301,31 @@ void sendNotFound(EthernetClient *client) {
   sendNotFoundBody(client);
 }
 
-void sendNotFoundHeader (EthernetClient *client) {
+void sendNotFoundHeader(EthernetClient *client) {
   sendData_P(client, 2);
 }
 
-void sendNotFoundBody (EthernetClient *client) {
+void sendNotFoundBody(EthernetClient *client) {
   sendData_P(client, 4);
 }
 
-void sendHomeBody (EthernetClient *client) {
+void sendHomeBody(EthernetClient *client) {
   sendData_P(client, 3);
 }
 
-void sendOkHeaderNoRefresh (EthernetClient *client) {
+void sendOkHeaderNoRefresh(EthernetClient *client) {
   sendData_P(client, 0);
 }
 
-void sendOkHeader (EthernetClient *client) {
+void sendOkHeader(EthernetClient *client) {
   sendData_P(client, 1);
 }
 
-void sendDataArray (EthernetClient *client, char *src) {
+void sendDataArray(EthernetClient *client, char *src) {
   client->println(src);
 }
 
-void sendDataArrayCharByChar (EthernetClient *client, char *src) {
+void sendDataArrayCharByChar(EthernetClient *client, char *src) {
   int idx = 0;
   do{
     client->print(src[idx]);
@@ -348,13 +335,11 @@ void sendDataArrayCharByChar (EthernetClient *client, char *src) {
 }
 
 void sendData_P(EthernetClient *client, int index) {
-  boolean endOfChunk = false;
   unsigned int flash_address = pgm_read_word(&string_table[index]);
   char c = 0;
-  while (!endOfChunk){
+  while (true){
     c = (char) pgm_read_byte(flash_address);
     if (c == '\0') {
-      endOfChunk = true;
       break;
     } 
     client->print(c);
