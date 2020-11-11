@@ -1,3 +1,4 @@
+#include <avr/pgmspace.h>
 #include <SPI.h>
 #include <Ethernet.h>
 #include "DHT.h"
@@ -12,6 +13,82 @@ byte mac[] = {
 };
 IPAddress ip(192, 168, 0, 177);
 EthernetServer server(80);
+
+// HTTP RS Header https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html#sec6
+const char okHeader[] PROGMEM = "HTTP/1.1 200 OK\r\n"
+                  "Content-Type: text/html\r\n"
+                  "Connection: close\r\n"; // the connection will be closed after completion of the response
+                  
+const char okHeaderRefresh[] PROGMEM = "HTTP/1.1 200 OK\r\n"
+                  "Content-Type: text/html\r\n"
+                  "Connection: close\r\n" // the connection will be closed after completion of the response
+                  "Refresh: 5\r\n";  // refresh the page automatically every 5 sec
+const char notFoundHeader[] PROGMEM = "HTTP/1.1 404 NotFound\r\n"
+                          "Content-Type: text/html\r\n" 
+                          "Connection: close\r\n"; // the connection will be closed after completion of the response
+const char okBody[] PROGMEM = "<!DOCTYPE html>\r\n"  
+                              "<html>\r\n"
+                              "  <body>\r\n"
+                              "    <h1>Home Weather Station</h1>\r\n"
+                              "    <div>\r\n"
+                              "     <div style=\"display: inline-block\">\r\n"
+                              "        <p>Temperature is </p>\r\n"
+                              "      </div>\r\n"
+                              "      <div id=\"temperature\" style=\"display: inline-block\">\r\n"
+                              "        <p>--</p>\r\n"
+                              "      </div>\r\n"
+                              "      <div style=\"display: inline-block\">\r\n"
+                              "        <p> &deg;C</p>\r\n"
+                              "      </div>\r\n"
+                              "    </div>\r\n"
+                              "    <div>\r\n"
+                              "      <div style=\"display: inline-block\">\r\n"
+                              "        <p>Humidity is </p>\r\n"
+                              "      </div>\r\n"
+                              "      <div id=\"humidity\" style=\"display: inline-block\">\r\n"
+                              "        <p>--</p>\r\n"
+                              "      </div>\r\n"
+                              "      <div style=\"display: inline-block\">\r\n"
+                              "        <p> &percnt;</p>\r\n"
+                              "      </div>\r\n"
+                              "    </div>\r\n"
+                              "<script>\r\n"
+                              "function getTemperature() {\r\n"
+                              "  var xhttp = new XMLHttpRequest();\r\n"
+                              "  xhttp.onreadystatechange = function() {\r\n"
+                              "    if (this.readyState == 4 && this.status == 200) {\r\n"
+                              "      document.getElementById(\"temperature\").innerHTML = this.responseText;\r\n"
+                              "    }\r\n"
+                              "  };\r\n"
+                              "  xhttp.open(\"GET\", \"getTemperature\", true);\r\n"
+                              "  xhttp.send();\r\n"
+                              "}\r\n"
+                              "function getHumidity() {\r\n"
+                              "  var xhttp = new XMLHttpRequest();\r\n"
+                              "  xhttp.onreadystatechange = function() {\r\n"
+                              "    if (this.readyState == 4 && this.status == 200) {\r\n"
+                              "      document.getElementById(\"humidity\").innerHTML = this.responseText;\r\n"
+                              "    }\r\n"
+                              "  };\r\n"
+                              "  xhttp.open(\"GET\", \"getHumidity\", true);\r\n"
+                              "  xhttp.send();\r\n"
+                              "}\r\n"
+                              "setInterval(function(){getTemperature()}, 5000);\r\n"
+                              "setInterval(function(){getHumidity()}, 5000);\r\n"
+                              "</script>\r\n"
+                              "  </body>\r\n"
+                              "</html>\r\n";                  
+const char notFoundBody[] PROGMEM =  "<!DOCTYPE html>\r\n"
+                         "<html>\r\n"
+                         "<body>\r\n"
+                         "<h1>Oops!</h1>\r\n"
+                         "<h2>404 Not Found</h2>\r\n"
+                         "<div> Sorry, requested resource not found! </div>\r\n"
+                         "<div>\r\n"
+                         "<a href=\"/\">Take Me Home </a>\r\n"
+                         "</div>\r\n";
+
+const char *const string_table[] PROGMEM = {okHeader, okHeaderRefresh, notFoundHeader, okBody, notFoundBody};
 
 void setup() {
   Serial.begin(9600);
@@ -42,34 +119,42 @@ void setup() {
   dht.begin();
 }
 
+static const char GET[] = "GET";
+static const char HOME_PATH[] = "/";
+static const char GET_TEMPERATURE[] = "/getTemperature";
+static const char GET_HUMIDITY[] = "/getHumidity";
+
+char rqMethod[10] = {0};
+char rqPath[20] = {0};
+
+char request_buffer[200] = {0};
+
 float t;
 float h;
 void loop() {
   // Wait a few seconds between measurements.
   delay(2000);
   
-  
   h = dht.readHumidity();
-  Serial.print(F("Humidity: "));
-  Serial.print(h);
-  Serial.println(F("% "));
+//  Serial.print(F("Humidity: "));
+//  Serial.print(h);
+//  Serial.println(F("% "));
   t = dht.readTemperature();
-  Serial.print(F("Temperature: "));
-  Serial.print(t);
-  Serial.println(F("°C "));
+//  Serial.print(F("Temperature: "));
+//  Serial.print(t);
+//  Serial.println(F("°C "));
   
   // listen for incoming clients
   EthernetClient client = server.available();
   if (client) {
-    Serial.println("new client");
+    Serial.println(F("new client"));
     // an http request ends with a blank line
     boolean currentLineIsBlank = true;
-    char request_buffer[200] = {0};
     int i = 0;
     while (client.connected()) {
       if (client.available()) {
         char c = client.read();
-        if (i <200){
+        if (i < 200){
           request_buffer[i] = c;
         }
         i++;
@@ -78,12 +163,6 @@ void loop() {
         // character) and the line is blank, the http request has ended,
         // so you can send a reply
         if (c == '\n' && currentLineIsBlank) {
-          char rqMethod[10] = {0};
-          char rqPath[20] = {0};
-          char GET[] = "GET";
-          char HOME_PATH[] = "/";
-          char GET_TEMPERATURE[] = "/getTemperature";
-          char GET_HUMIDITY[] = "/getHumidity";
           parseRequest(request_buffer, sizeof(request_buffer), rqMethod, 10, rqPath, 20); 
           Serial.println(rqPath);
           if (strcmp(rqPath, HOME_PATH) == 0) {
@@ -118,7 +197,7 @@ void loop() {
       }
     }
     // give the web browser time to receive the data
-    delay(1);
+    delay(2);
     // close the connection:
     client.stop();
     Serial.println("client disconnected");
@@ -158,11 +237,9 @@ void parseRequest(char *request_buffer, int maxBufferSize, char *rqMethod, int m
 
 int getChunkAndPutItInArray(char *destinationArray, char *sourceArray, char endChar, int shift, int maxSize) {
   int chunkIdx = 0;
-  boolean endOfChunk = false;
   int idx = shift;
-  while (!endOfChunk){
+  while (true){
     if (idx >= maxSize || sourceArray[idx] == '\0' || sourceArray[idx] == endChar ) {
-      endOfChunk = true;
       destinationArray[chunkIdx] = '\0';
       chunkIdx++; // increase the traversed positions one more time before exiting.
       break;
@@ -174,16 +251,12 @@ int getChunkAndPutItInArray(char *destinationArray, char *sourceArray, char endC
   return chunkIdx;
 }
 
-// HTTP RS Header https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html#sec6
-char okHeader[] = "HTTP/1.1 200 OK\r\n"
-                  "Content-Type: text/html\r\n"
-                  "Connection: close\r\n" // the connection will be closed after completion of the response
-                  "Refresh: 5\r\n";  // refresh the page automatically every 5 sec
+
 
 void sendTemp(EthernetClient *client) {
   // float t = dht.readTemperature();
-  // send a standard http response header
-  sendHeader(client, okHeader);
+  // send a standard http response header 
+  sendOkHeader(client);
   // Maximum temp is 100.00. We need a maximum of 6 chars, with 2 decimal positions.
   char temp[13]={0};
   dtostrf(t, 6, 2, temp);
@@ -193,13 +266,13 @@ void sendTemp(EthernetClient *client) {
   temp[9] = 'g';
   temp[10] = ';';
   temp[11] = 'C';
-  sendBody(client, temp);
+  sendDataArrayCharByChar(client, temp);
 }
 
 void sendHumidity(EthernetClient *client) {
   // float h = dht.readHumidity();
   // send a standard http response header
-  sendHeader(client, okHeader);
+  sendOkHeader(client);
   // Maximum humidity is 100.00. We need a maximum of 6 chars, with 2 decimal positions.
   char humidity[15]={0};
   dtostrf(h, 6, 2, humidity);
@@ -211,47 +284,68 @@ void sendHumidity(EthernetClient *client) {
   humidity[11] = 'n';
   humidity[12] = 't';
   humidity[13] = ';';
-  
-  sendBody(client, humidity);
+  sendDataArrayCharByChar(client, humidity);
 }
 
-char mainBody[] =  "<!DOCTYPE html>\r\n"
-                     "<html>\r\n"
-                     "<body>\r\n"
-                     "<h1>Home Weather Station</h1>\r\n"
-                     "<p>Temperature is -- C </p>\r\n"
-                     "</body>\r\n"
-                     "</html>\r\n";
+
 void sendHome(EthernetClient *client) {
   // send a standard http response header
-  sendHeader(client, okHeader);
-  sendBody(client, mainBody);
+  sendOkHeaderNoRefresh(client);
+  sendHomeBody(client);
 }
 
-char notFoundHeader[] = "HTTP/1.1 404 NotFound\r\n"
-                          "Content-Type: text/html\r\n" 
-                          "Connection: close\r\n"; // the connection will be closed after completion of the response
-
-char notFoundBody[] =  "<!DOCTYPE html>\r\n"
-                         "<html>\r\n"
-                         "<body>\r\n"
-                         "<h1>Oops!</h1>"
-                         "<h2>404 Not Found</h2>"
-                         "<div> Sorry, requested resource not found! </div>"
-                         "<div>"
-                         "<a href=\"/\">Take Me Home </a>"
-                         "</div>";
 
 void sendNotFound(EthernetClient *client) {
   // send Not Found a standard http response header
-  sendHeader(client, notFoundHeader);  
-  sendBody(client, notFoundBody);
+  sendNotFoundHeader(client);
+  sendNotFoundBody(client);
 }
 
-void sendHeader (EthernetClient *client, char *header) {
-  client->println(header);
+void sendNotFoundHeader(EthernetClient *client) {
+  sendData_P(client, 2);
 }
 
-void sendBody (EthernetClient *client, char *body) {
-  client->println(body);
+void sendNotFoundBody(EthernetClient *client) {
+  sendData_P(client, 4);
+}
+
+void sendHomeBody(EthernetClient *client) {
+  sendData_P(client, 3);
+}
+
+void sendOkHeaderNoRefresh(EthernetClient *client) {
+  sendData_P(client, 0);
+}
+
+void sendOkHeader(EthernetClient *client) {
+  sendData_P(client, 1);
+}
+
+void sendDataArray(EthernetClient *client, char *src) {
+  client->println(src);
+}
+
+void sendDataArrayCharByChar(EthernetClient *client, char *src) {
+  int idx = 0;
+  do{
+    client->print(src[idx]);
+    idx++;
+  } while(src[idx] != '\0');
+  client->print("\r\n");
+}
+
+void sendData_P(EthernetClient *client, int index) {
+  unsigned int flash_address = pgm_read_word(&string_table[index]);
+  char c = 0;
+  while (true){
+    c = (char) pgm_read_byte(flash_address);
+    if (c == '\0') {
+      break;
+    } 
+    client->print(c);
+    Serial.print(c);
+    flash_address++;
+  }
+  client->print("\r\n");
+  Serial.print("\r\n");
 }
