@@ -3,9 +3,25 @@
 #include <Ethernet.h>
 #include "DHT.h"
 
+#include "SSD1306Ascii.h"
+#include "SSD1306AsciiAvrI2c.h"
+
 #define DHTPIN 7     
-#define DHTTYPE DHT11
+#define DHTTYPE DHT22
 DHT dht(DHTPIN, DHTTYPE);
+
+#define I2C_ADDRESS 0x3C
+
+// Define proper RST_PIN if required.
+#define RST_PIN -1
+
+SSD1306AsciiAvrI2c oled;
+
+/** Oled specific fields to help move cursor around **/
+int valueFieldWidth = 0;
+int firstRowX0 = 0;  // First value column
+int secondRowX0 = 0;  // First value column
+int rHeight = 0;      // Rows per line.
 
 
 byte mac[] = {
@@ -117,6 +133,8 @@ void setup() {
   Serial.println(Ethernet.localIP());
 
   dht.begin();
+
+  setUpOled();
 }
 
 static const char GET[] = "GET";
@@ -134,15 +152,21 @@ float h;
 void loop() {
   // Wait a few seconds between measurements.
   delay(2000);
+
   
+  t = dht.readTemperature();
+  printTempInt(t);
+//  Serial.print(F("Temperature: "));
+//  Serial.print(t);
+//  Serial.println(F("°C "));
+
   h = dht.readHumidity();
 //  Serial.print(F("Humidity: "));
 //  Serial.print(h);
 //  Serial.println(F("% "));
-  t = dht.readTemperature();
-//  Serial.print(F("Temperature: "));
-//  Serial.print(t);
-//  Serial.println(F("°C "));
+  printHumidityInt(h);
+  
+
   
   // listen for incoming clients
   EthernetClient client = server.available();
@@ -348,4 +372,85 @@ void sendData_P(EthernetClient *client, int index) {
   }
   client->print("\r\n");
   Serial.print("\r\n");
+}
+void setUpOled(){
+  const char* zones[] = {"IN", "OUT"};
+  const char* tittles[] = {"Temp.:", "Hum.:"};
+  const char* units[] = {"C", "%"}; 
+  
+  oled.begin(&Adafruit128x64, I2C_ADDRESS);
+
+  oled.setFont(Callibri15);
+  oled.clear();
+  oled.print("Setup ready!");
+  delay(1000);
+  oled.clear();
+
+  rHeight = oled.fontRows();
+  valueFieldWidth = oled.strWidth("100.0") + 3;
+
+  // First group
+  int firstRowXDelta0 = printZones(zones[0], 0);
+  firstRowX0 = printLabels(tittles, 2, firstRowXDelta0, 0, rHeight);
+  printLabels(units, 2, firstRowX0 + valueFieldWidth, 0, rHeight);
+  delay(1000); 
+
+  // Second group
+  int secondRowXDelta0 = printZones(zones[1], 2*rHeight);
+  secondRowX0 = printLabels(tittles, 2, secondRowXDelta0, 2*rHeight, rHeight);
+  printLabels(units, 2, secondRowX0 + valueFieldWidth, 2*rHeight, rHeight);
+  delay(1000); 
+}
+
+void printTempInt(double temperature){
+  printOled(firstRowX0, firstRowX0 + valueFieldWidth, 0, rHeight, temperature);
+  // printOled(0, temperature);
+}
+
+void printHumidityInt(double humidity){
+  printOled(firstRowX0, firstRowX0 + valueFieldWidth, rHeight, rHeight + rHeight, humidity);
+  // printOled(rHeight, humidity);
+}
+
+
+void printTempOut(double temperature){
+  printOled(secondRowX0, secondRowX0 + valueFieldWidth, 2 * rHeight, 3 * rHeight, temperature);
+}
+
+void printHumidityOut(double humidity){
+  printOled(secondRowX0, secondRowX0 + valueFieldWidth, 3 * rHeight, 4 * rHeight, humidity);
+}
+
+void printOled(int x0, int x1, int y0, int y1, double valueToPrint){
+  oled.clear(x0, x1 - 1, y0, y1 - 1);
+  oled.print(valueToPrint, 1);
+}
+
+int printZones(char *zone, int yDelta){
+  oled.setFont(System5x7);
+  oled.set2X();
+  oled.setCursor(0, yDelta);
+  oled.print(zone);
+  int x00 = oled.strWidth(zone) +1;
+  oled.setFont(Callibri15);
+  delay(1000);
+  oled.set1X();
+  return x00;
+}
+
+int printLabel(char *value, int x0, int y0, int yDelta){
+  oled.setCursor(x0, y0 + yDelta);
+  oled.print(value);
+  return oled.strWidth(value) + x0 + 4;
+}
+
+int printLabels(char *labels[], int numberOfLabels, int x0, int y0, int rowHeight) {
+  int width = 0;
+  int maxWidth = 0;
+  for (int i = 0; i < numberOfLabels; i++) {
+    width = printLabel(labels[i], x0, y0, i*rowHeight);
+    maxWidth = maxWidth < width ? width : maxWidth; 
+    delay(1000);
+  }
+  return maxWidth;
 }
