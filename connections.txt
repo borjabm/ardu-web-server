@@ -1,0 +1,39 @@
+/***** UNO *****/
+/** DHT22 **/
+DHT22 - UNO
+GND   - GND
+VCC   - 3V3
+DAT   - D7
+/** OLED SSD1306 128x64 **/
+OLED    -   UNO
+GND     -   GND
+VDD     -   5V
+SCK     -   A5
+SDA     -   A4
+
+/** HC-05 **/
+HC-05   -   UNO
+VCC     -   5V
+GND     -   GND
+TX      -   D3
+RX      -   D2
+
+/***** NANO *****/
+/** DHT22 **/
+DHT22 - NANO
+GND   - GND
+VCC   - 5V
+DAT   - D7
+/** OLED SSD1306 128x64 **/
+OLED    -   NANO
+GND     -   GND
+VDD     -   5V
+SCK     -   A5
+SDA     -   A4
+
+/** HC-05 **/
+HC-05   -   NANO
+VCC     -   5V
+GND     -   GND
+TX      -   D3
+RX      -   D2
