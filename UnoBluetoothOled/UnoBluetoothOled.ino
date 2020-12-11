@@ -1,4 +1,3 @@
-#include <SPI.h>
 #include "DHT.h"
 #include "SSD1306Ascii.h"
 #include "SSD1306AsciiAvrI2c.h"
@@ -26,17 +25,18 @@ int secondRowX0 = 0;  // First value column
 int rHeight = 0;      // Rows per line.
 
 void setup() {
-  Serial.begin(9600);
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
-  }
-  Serial.println("Uno Temp/Hum - Oled - Bluetooth poller");
+  //Serial.begin(9600);
+  //while (!Serial) {
+  //  ; // wait for serial port to connect. Needed for native USB port only
+  //}
+  //Serial.println("Uno Temp/Hum - Oled - Bluetooth poller");
   
   dht.begin();
+  
   hc05Module.begin(9600); 
-  Serial.println("***Connection Test - I am UNO***"); 
   pinMode(tx, OUTPUT);
   pinMode(rx, INPUT);
+  
   setUpOled();
 }
 
@@ -56,8 +56,8 @@ int maxTimeOut = 30000;
 int delayPeriod = 2000;
 
 char nextReading = 't';
-char const READ_TEMP = 't';
-char const READ_HUM = 'h';
+static const char READ_TEMP = 't';
+static const char READ_HUM = 'h';
 
 void loop() {
   // Wait a few seconds between measurements.
@@ -76,16 +76,16 @@ void loop() {
 //  Serial.println(F("% "));
   printHumidityInt(h);
 
-  Serial.print("nextReading...");
-  Serial.println(nextReading);
+  //Serial.print("nextReading...");
+  //Serial.println(nextReading);
   if (!waitingForAResponse && nextReading == READ_TEMP) {
-    Serial.println("Requesting temp...");
+    //Serial.println("Requesting temp...");
     hc05Module.println("getTemperature");
     waitingForAResponse = true;
   }
   
   if (!waitingForAResponse && nextReading == READ_HUM) {
-    Serial.println("Requesting hum...");
+    //Serial.println("Requesting hum...");
     hc05Module.println("getHumidity");
     waitingForAResponse = true;
   }
@@ -102,25 +102,29 @@ void loop() {
     // H= 24.60\r\n, H=100.00\r\n 
     if (c == '\n') {
       parseResponse(request_buffer, sizeof(request_buffer), magnitud, sizeof(magnitud), reading, sizeof(reading));
-      Serial.println("Received!");
-      Serial.println(magnitud);
-      Serial.println(reading);
-      if(strcmp("T",magnitud) == 0){
-        Serial.println("Received temp!");
+      //Serial.println("Received!");
+      //Serial.println(magnitud);
+      //Serial.println(reading);
+      if(strcmp("T", magnitud) == 0){
+        //Serial.println("Received temp!");
         printTempOut(atof(reading));
         nextReading = READ_HUM;
         i = 0;
-        memset(request_buffer, 0, 20); // Clear recieved buffer
+        memset(request_buffer, 0, 20);// Clear received buffer
+        memset(magnitud, 0, 20);
+        memset(reading, 0, 20); 
         waitingForAResponse = false;
         break;
       }
       
-      if(strcmp("H",magnitud) == 0){
-        Serial.println("Received hum!");
+      if(strcmp("H", magnitud) == 0){
+        //Serial.println("Received hum!");
         printHumidityOut(atof(reading));
         nextReading = READ_TEMP;
         i = 0;
-        memset(request_buffer, 0, 20); // Clear recieved buffer
+        memset(request_buffer, 0, 20); // Clear received buffer
+        memset(magnitud, 0, 20);
+        memset(reading, 0, 20);
         waitingForAResponse = false;
         break;
       } 

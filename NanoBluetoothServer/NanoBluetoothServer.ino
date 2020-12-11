@@ -25,12 +25,12 @@ int secondRowX0 = 0;  // First value column
 int rHeight = 0;      // Rows per line.
 
 void setup() {
-  Serial.begin(9600); 
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
-  }
+  //Serial.begin(9600); 
+  //while (!Serial) {
+  //  ; // wait for serial port to connect. Needed for native USB port only
+  //}
   
-  Serial.println("***Connection Test - I am NANO***"); 
+  //Serial.println("***NANO Temp/Hum - Oled - Bluetooth slave***"); 
   
   dht.begin();
   
@@ -43,6 +43,9 @@ void setup() {
 
 static const char GET_TEMPERATURE[] = "getTemperature";
 static const char GET_HUMIDITY[] = "getHumidity";
+static const char TEMP = 'T';
+static const char HUM = 'H';
+static const char EQUAL = '=';
 
 // Char buffer used to temporarily store full incoming request
 char request_buffer[20] = {0};
@@ -60,19 +63,19 @@ void loop() {
   
   t = dht.readTemperature();
   printTempInt(t);
-  Serial.print(F("Temperature: "));
-  Serial.print(t);
-  Serial.println(F("°C "));
+  //Serial.print(F("Temperature: "));
+  //Serial.print(t);
+  //Serial.println(F("°C "));
   h = dht.readHumidity();
   printHumidityInt(h);
-  Serial.print(F("Humidity: "));
-  Serial.print(h);
-  Serial.println(F("% "));
+  //Serial.print(F("Humidity: "));
+  //Serial.print(h);
+  //Serial.println(F("% "));
   
   while (hc05Module.available() > 0)
     {
         char c = hc05Module.read();
-        Serial.println(c);
+        // Serial.println(c);
         if (i < 20){
           request_buffer[i] = c;
         }
@@ -83,12 +86,12 @@ void loop() {
         {
           parseRequest(request_buffer, sizeof(request_buffer), rqMethod, sizeof(rqMethod));
           if (strcmp(rqMethod, GET_TEMPERATURE) == 0) {
-            Serial.println("Sending temp...");
+            //Serial.println("Sending temp...");
             sendTemp(&hc05Module);
           }
           
           if (strcmp(rqMethod, GET_HUMIDITY) == 0) {
-            Serial.println("Sending hum...");
+            //Serial.println("Sending hum...");
             sendHumidity(&hc05Module);
           }
           
@@ -126,9 +129,9 @@ void sendTemp(SoftwareSerial *bluetoothModule) {
   // Maximum temp is 100.00. We need a maximum of 6 chars, with 2 decimal positions.
   char temp[6]={0};
   dtostrf(t, 6, 2, temp);
-  Serial.println(temp);
-  bluetoothModule->write('T');
-  bluetoothModule->write('=');
+  //Serial.println(temp);
+  bluetoothModule->write(TEMP);
+  bluetoothModule->write(EQUAL);
   bluetoothModule->println(temp);
 }
 
@@ -136,9 +139,9 @@ void sendHumidity(SoftwareSerial *bluetoothModule) {
   // Maximum humidity is 100.00. We need a maximum of 6 chars, with 2 decimal positions.
   char hum[6]={0};
   dtostrf(h, 6, 2, hum);
-  Serial.println(hum);
-  bluetoothModule->write('H');
-  bluetoothModule->write('=');
+  //Serial.println(hum);
+  bluetoothModule->write(HUM);
+  bluetoothModule->write(EQUAL);
   bluetoothModule->println(hum);
 }
 
