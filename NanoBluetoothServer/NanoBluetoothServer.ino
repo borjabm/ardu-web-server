@@ -24,13 +24,19 @@ int firstRowX0 = 0;  // First value column
 int secondRowX0 = 0;  // First value column
 int rHeight = 0;      // Rows per line.
 
+boolean DEBUG = false;
+
 void setup() {
-  //Serial.begin(9600); 
-  //while (!Serial) {
-  //  ; // wait for serial port to connect. Needed for native USB port only
-  //}
+  if (DEBUG) {
+    Serial.begin(9600); 
+    while (!Serial) {
+      ; // wait for serial port to connect. Needed for native USB port only
+    }
+    Serial.println("***NANO Temp/Hum - Oled - Bluetooth slave***"); 
+  }
   
-  //Serial.println("***NANO Temp/Hum - Oled - Bluetooth slave***"); 
+  
+  
   
   dht.begin();
   
@@ -63,14 +69,20 @@ void loop() {
   
   t = dht.readTemperature();
   printTempInt(t);
-  //Serial.print(F("Temperature: "));
-  //Serial.print(t);
-  //Serial.println(F("°C "));
+  if (DEBUG) {
+    Serial.print(F("Temperature: "));
+    Serial.print(t);
+    Serial.println(F("°C "));
+  }
+
   h = dht.readHumidity();
   printHumidityInt(h);
-  //Serial.print(F("Humidity: "));
-  //Serial.print(h);
-  //Serial.println(F("% "));
+  if (DEBUG) {
+    Serial.print(F("Humidity: "));
+    Serial.print(h);
+    Serial.println(F("% "));
+  }
+  
   
   while (hc05Module.available() > 0)
     {
@@ -84,20 +96,30 @@ void loop() {
         // We expect to receive single line requests via Bluetooth, ended with \r\n - sender needs to use println.
         if (c == '\n')
         {
+          if (DEBUG) {
+            Serial.println("Received!");
+            Serial.println(request_buffer);
+          }
+          
           parseRequest(request_buffer, sizeof(request_buffer), rqMethod, sizeof(rqMethod));
           if (strcmp(rqMethod, GET_TEMPERATURE) == 0) {
-            //Serial.println("Sending temp...");
+            if (DEBUG) {
+              Serial.println("Sending temp...");
+            }
             sendTemp(&hc05Module);
           }
           
           if (strcmp(rqMethod, GET_HUMIDITY) == 0) {
-            //Serial.println("Sending hum...");
+            if (DEBUG) {
+              Serial.println("Sending hum...");
+            }
             sendHumidity(&hc05Module);
           }
           
           i=0;
           memset(rqMethod, 0, 20);
           memset(request_buffer, 0, 20); // Clear recieved buffer
+          break;
         }
     }
 }
@@ -129,7 +151,9 @@ void sendTemp(SoftwareSerial *bluetoothModule) {
   // Maximum temp is 100.00. We need a maximum of 6 chars, with 2 decimal positions.
   char temp[6]={0};
   dtostrf(t, 6, 2, temp);
-  //Serial.println(temp);
+  if (DEBUG) {
+    Serial.println(temp);
+  }
   bluetoothModule->write(TEMP);
   bluetoothModule->write(EQUAL);
   bluetoothModule->println(temp);
@@ -139,7 +163,9 @@ void sendHumidity(SoftwareSerial *bluetoothModule) {
   // Maximum humidity is 100.00. We need a maximum of 6 chars, with 2 decimal positions.
   char hum[6]={0};
   dtostrf(h, 6, 2, hum);
-  //Serial.println(hum);
+  if (DEBUG) {
+    Serial.println(hum);
+  }
   bluetoothModule->write(HUM);
   bluetoothModule->write(EQUAL);
   bluetoothModule->println(hum);

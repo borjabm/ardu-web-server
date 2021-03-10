@@ -11,7 +11,7 @@ SoftwareSerial hc05Module(rx, tx); // HC-05 RX -> Digital2 | HC-05 TX -> Digital
 // DHT22 sensor.
 // For the UNO, DHT22 works with 3.3V
 #define DHTPIN 7     
-#define DHTTYPE DHT22
+#define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
 
 // Oled I2C address
@@ -24,12 +24,17 @@ int firstRowX0 = 0;  // First value column
 int secondRowX0 = 0;  // First value column
 int rHeight = 0;      // Rows per line.
 
+boolean DEBUG = false;
+
 void setup() {
-  //Serial.begin(9600);
-  //while (!Serial) {
-  //  ; // wait for serial port to connect. Needed for native USB port only
-  //}
-  //Serial.println("Uno Temp/Hum - Oled - Bluetooth poller");
+  if (DEBUG) {
+    Serial.begin(9600);
+    while (!Serial) {
+      ; // wait for serial port to connect. Needed for native USB port only
+    }
+    Serial.println("Uno Temp/Hum - Oled - Bluetooth poller");
+  }
+  
   
   dht.begin();
   
@@ -44,7 +49,7 @@ bool waitTemperatureResponse = false;
 bool waitHumidityResponse = false;
 bool waitingForAResponse = false;
 char request_buffer[20] = {0};
-char magnitud[20] = {0};
+char measurement[20] = {0};
 char reading[20] = {0};
 int i = 0;
 
@@ -66,26 +71,39 @@ void loop() {
   
   t = dht.readTemperature();
   printTempInt(t);
-//  Serial.print(F("Temperature: "));
-//  Serial.print(t);
-//  Serial.println(F("°C "));
+  if (DEBUG) {
+    Serial.print(F("Temperature: "));
+    Serial.print(t);
+    Serial.println(F("°C "));
+  }
+
 
   h = dht.readHumidity();
-//  Serial.print(F("Humidity: "));
-//  Serial.print(h);
-//  Serial.println(F("% "));
+  if (DEBUG) {
+    Serial.print(F("Humidity: "));
+    Serial.print(h);
+    Serial.println(F("% "));
+  }
+
   printHumidityInt(h);
 
-  //Serial.print("nextReading...");
-  //Serial.println(nextReading);
+  if (DEBUG) {
+    Serial.print("nextReading...");
+    Serial.println(nextReading);
+  }
+  
   if (!waitingForAResponse && nextReading == READ_TEMP) {
-    //Serial.println("Requesting temp...");
+    if (DEBUG) {
+      Serial.println("Requesting temp...");
+    }
     hc05Module.println("getTemperature");
     waitingForAResponse = true;
   }
   
   if (!waitingForAResponse && nextReading == READ_HUM) {
-    //Serial.println("Requesting hum...");
+    if (DEBUG) {
+      Serial.println("Requesting hum...");
+    }
     hc05Module.println("getHumidity");
     waitingForAResponse = true;
   }
@@ -101,33 +119,56 @@ void loop() {
     // T= 24.60\r\n, T=-24.60\r\n, T=100.00\r\n
     // H= 24.60\r\n, H=100.00\r\n 
     if (c == '\n') {
-      parseResponse(request_buffer, sizeof(request_buffer), magnitud, sizeof(magnitud), reading, sizeof(reading));
-      //Serial.println("Received!");
-      //Serial.println(magnitud);
-      //Serial.println(reading);
-      if(strcmp("T", magnitud) == 0){
-        //Serial.println("Received temp!");
-        printTempOut(atof(reading));
-        nextReading = READ_HUM;
-        i = 0;
-        memset(request_buffer, 0, 20);// Clear received buffer
-        memset(magnitud, 0, 20);
-        memset(reading, 0, 20); 
-        waitingForAResponse = false;
-        break;
+      if (DEBUG) {
+        Serial.println("Received!");
+        Serial.println(request_buffer);
       }
       
-      if(strcmp("H", magnitud) == 0){
-        //Serial.println("Received hum!");
+      parseResponse(request_buffer, sizeof(request_buffer), measurement, sizeof(measurement), reading, sizeof(reading));
+
+      if (DEBUG) {
+        Serial.println("measurement and reading:");
+        Serial.println(measurement);
+        Serial.println(reading);
+      }
+      
+      if(strcmp("T", measurement) == 0){
+        if (DEBUG) {
+          Serial.println("Received temp!");
+        }
+        printTempOut(atof(reading));
+        nextReading = READ_HUM;
+        /*i = 0;
+        memset(request_buffer, 0, 20);// Clear received buffer
+        memset(measurement, 0, 20);
+        memset(reading, 0, 20); 
+        waitingForAResponse = false;
+        break;*/
+      }
+      if(strcmp("H", measurement) == 0){
+        if (DEBUG) {
+          Serial.println("Received hum!");
+        }
         printHumidityOut(atof(reading));
         nextReading = READ_TEMP;
-        i = 0;
+        /*i = 0;
         memset(request_buffer, 0, 20); // Clear received buffer
-        memset(magnitud, 0, 20);
+        memset(measurement, 0, 20);
         memset(reading, 0, 20);
         waitingForAResponse = false;
-        break;
+        break;*/
       } 
+      // We received something unexpected.
+      if (DEBUG) {
+        Serial.println("Received something unexpected, clearing!");
+      }
+      i = 0;
+      memset(request_buffer, 0, 20); // Clear received buffer
+      memset(measurement, 0, 20);
+      memset(reading, 0, 20);
+      waitingForAResponse = false;
+      break;
+      
     }
    }
 
@@ -147,8 +188,8 @@ void loop() {
 
 void parseResponse(char *requestBuffer, int maxRequestBuffer, char *rqMethod, int maxRqMethodSize, char *reading, int maxReadingSize) {
   // We expect to receive single line requests via Bluetooth, ended with \r\n - sender needs to use println.
-  int magnitudeIdx = getChunkAndPutItInArray(rqMethod, maxRqMethodSize, requestBuffer, maxRequestBuffer, '=', 0);
-  int readingIdx = getChunkAndPutItInArray(reading, maxReadingSize, requestBuffer, maxRequestBuffer, '\r', magnitudeIdx);
+  int measurementIdx = getChunkAndPutItInArray(rqMethod, maxRqMethodSize, requestBuffer, maxRequestBuffer, '=', 0);
+  int readingIdx = getChunkAndPutItInArray(reading, maxReadingSize, requestBuffer, maxRequestBuffer, '\r', measurementIdx);
 }
 
 int getChunkAndPutItInArray(char *destinationArray, int destinationArraySize, char *sourceArray, int sourceArraySize, char endChar, int shift) {

@@ -21,25 +21,51 @@ void loop()
   //4. Release reset button.
   //5. Open Serial monitor, set baudrate to 38400 baud and Both NL&CR
   //6. Send AT commands
-  /** UNO - Master **/
+  /** UNO - Master VERSION:2.0 **/
   // AT+ROLE? 
   // AT+ROLE=1    // 1 - Master
   // AT+CMODE?
   // AT+CMODE=1 // 1 - connect any address
   // AT+NAME?
   // AT+NAME=HC-05-UNO
-  // AT+ADDR? // 98D3:61:F5F0EE  -> Mac address to which the slave module will connect
+  // AT+ADDR? // 98D3:61:F5F0EE  -> Mac address to which the slave module will connect 
 
-  /** Nano - Slave **/
+  /** Nano - Slave VERSION:2.0 **/
   // AT+ROLE? 
   // AT+ROLE=0    // 0 - Slave
   // AT+CMODE?
   // AT+CMODE=0 // 0 - connect fixed address
   // AT+NAME?
   // AT+NAME=HC-05-NANO
-  // AT+ADDR? // 21:13:17EB
+  // AT+ADDR? // 21:13:17EB // 21:13:1450
   // AT+BIND=98D3,61,F5F0EE
-  // AT+BINDR? // 98D3:61:F5F0EE  -> It should ne the Mac address of the master
+  // AT+BIND? // 98D3:61:F5F0EE  -> It should ne the Mac address of the master
+  
+  /** UNO - Master VERSION:3.0-20170601 **/
+  // AT+RMAAD
+  // AT+ROLE? 
+  // AT+ROLE=1    // 1 - Master
+  // AT+RESET
+  // AT+CMODE?
+  // AT+CMODE=0 // 1 - connect fixed address
+  // AT+NAME?
+  // AT+NAME=HC-05-UNO
+  // AT+ADDR? // 0021:13:003D0F  -> Mac address to which the slave module will connect // 0021:13:003D0F
+
+  /** Nano - Slave VERSION:3.0-20170601 **/
+  // AT+RMAAD
+  // AT+ROLE? 
+  // AT+ROLE=0    // 0 - Slave
+  // AT+RESET
+  // AT+CMODE?
+  // AT+CMODE=0 // 0 - connect fixed address
+  // AT+NAME?
+  // AT+NAME=HC-05-NANO
+  // AT+ADDR? // 21:13:1450
+  // AT+PAIR=0021,13,003D0F,9 -> It should ne the Mac address of the master
+
+  
+  
  /**if (flag == 1) 
  { 
    digitalWrite(LED_BUILTIN, HIGH);  

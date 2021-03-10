@@ -4,6 +4,12 @@ DHT22 - UNO
 GND   - GND
 VCC   - 3V3
 DAT   - D7
+
+/** DHT11 **/
+DHT22 - UNO
+GND   - GND
+VCC   - 3V3
+DAT   - D7
 /** OLED SSD1306 128x64 **/
 OLED    -   UNO
 GND     -   GND
