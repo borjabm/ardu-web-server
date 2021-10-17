@@ -11,7 +11,7 @@ SoftwareSerial hc05Module(rx, tx); // HC-05 RX -> Digital2 | HC-05 TX -> Digital
 // DHT22 sensor.
 // For the UNO, DHT22 works with 3.3V
 #define DHTPIN 7     
-#define DHTTYPE DHT11
+#define DHTTYPE DHT22
 DHT dht(DHTPIN, DHTTYPE);
 
 // Oled I2C address
